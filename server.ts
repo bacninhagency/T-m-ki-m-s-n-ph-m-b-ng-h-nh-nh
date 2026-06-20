@@ -297,8 +297,10 @@ app.post("/api/analyze-image", async (req, res) => {
   try {
     const ai = getGeminiClient();
 
-    // Prepare image format according to Gemini SDK guidelines
-    const base64DataOnly = imageBase64.replace(/^data:image\/\w+;base64,/, "");
+    // Prepare image format according to Gemini SDK guidelines - split from data URI safely
+    const base64DataOnly = imageBase64.includes(",") 
+      ? imageBase64.split(",")[1] 
+      : imageBase64;
 
     const imagePart = {
       inlineData: {
@@ -475,6 +477,15 @@ app.delete("/api/inquiries/:id", (req, res) => {
 
   inquiries.splice(index, 1);
   res.json({ message: "Đã xóa yêu cầu thành công!" });
+});
+
+
+// Global error handling middleware to ensure we always return JSON
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error("Global Server Error Caught:", err);
+  res.status(err.status || 500).json({
+    error: err.message || "Sự cố nội bộ từ máy chủ sản xuất."
+  });
 });
 
 

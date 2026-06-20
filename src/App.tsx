@@ -218,8 +218,33 @@ export default function App() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Yêu cầu robot Gemini Vision đọc ảnh thất bại.');
+        let errMsg = '';
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          try {
+            const errorJSON = await response.json();
+            errMsg = errorJSON.error || errorJSON.message || 'Yêu cầu robot Gemini Vision đọc ảnh thất bại.';
+          } catch {
+            errMsg = 'Lỗi máy chủ phản hồi không đúng định dạng.';
+          }
+        } else {
+          const textError = await response.text();
+          console.error("Non-JSON Server Response:", textError);
+          if (textError.includes("GEMINI_API_KEY") || textError.includes("apiKey") || textError.includes("API Key")) {
+            errMsg = 'Khóa API Gemini (GEMINI_API_KEY) chưa được thiết lập chính xác. Vui lòng kiểm tra tab Settings -> Secrets trong AI Studio và cấu hình khóa mới.';
+          } else {
+            errMsg = `Lỗi máy chủ (${response.status}): Không thể xử lý yêu cầu phân tích ảnh. Vui lòng kiểm tra khóa GEMINI_API_KEY trong cấu hình Secrets.`;
+          }
+        }
+        throw new Error(errMsg);
+      }
+
+      // Check content-type of success response
+      const successContentType = response.headers.get('content-type');
+      if (!successContentType || !successContentType.includes('application/json')) {
+        const rawText = await response.text();
+        console.error("Success endpoint returned non-JSON product payload:", rawText);
+        throw new Error('Sự cố hệ thống: Phản hồi thành công từ máy chủ không mang định dạng JSON.');
       }
 
       const parsedResult: AIAnalysisResult = await response.json();
